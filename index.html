@@ -33,7 +33,6 @@
             width: 100%;
         }
 
-        /* Top Navigation Tabs */
         .tabs {
             display: flex;
             gap: 8px;
@@ -73,7 +72,6 @@
         h2 { margin: 0 0 8px 0; color: #1c3aa9; font-size: 24px; font-weight: 600; }
         .subtitle { color: #5f6368; font-size: 14px; margin-bottom: 24px; }
 
-        /* Form Controls */
         .form-group {
             margin-bottom: 18px;
         }
@@ -108,7 +106,6 @@
         button:hover { background-color: var(--primary-hover); }
         button:disabled { background-color: #bcc1c6; cursor: not-allowed; }
 
-        /* Status & Table UI */
         .status { margin-top: 15px; font-weight: 500; font-size: 13px; color: var(--primary); }
         
         table {
@@ -137,18 +134,15 @@
 <body>
 
 <div class="container">
-    <!-- Navigation Tabs -->
     <div class="tabs">
         <button id="tab-student-panel" class="tab-btn active" onclick="switchTab('student-panel')">Student Check-In</button>
         <button id="tab-lecturer-panel" class="tab-btn" onclick="switchTab('lecturer-panel'); fetchLogs();">Lecturer Dashboard</button>
     </div>
 
-    <!-- STUDENT VIEW PANEL -->
     <div id="student-panel" class="panel active">
         <h2>Smart Attendance Check-In</h2>
         <div class="subtitle">Secure classroom geofence submission portal.</div>
         
-        <!-- --- INPUT FIELD BLOCK --- -->
         <div class="form-group" style="margin-bottom: 24px;">
             <label style="display: block; font-size: 14px; font-weight: 600; color: #202124; margin-bottom: 8px;">
                 Enter Your Matriculation Number
@@ -156,13 +150,11 @@
             <input type="text" id="matricNumberField" placeholder="e.g., DEL/2022/001" 
                    style="width: 100%; padding: 14px; border: 2px solid var(--border-color); border-radius: 8px; font-size: 15px; box-sizing: border-box; background: #ffffff;">
         </div>
-        <!-- ------------------------- -->
 
         <button id="verifyBtn">Mark My Attendance</button>
         <div id="statusMsg" class="status"></div>
     </div>
 
-    <!-- LECTURER PORTAL PANEL -->
     <div id="lecturer-panel" class="panel">
         <h2>Lecturer Control Management</h2>
         <div class="subtitle">Generate tracking sessions and audit automated system history logs.</div>
@@ -210,7 +202,6 @@
 </div>
 
 <script>
-    // Tab Switching Controller Logic
     function switchTab(panelId) {
         document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
         document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -219,15 +210,21 @@
         document.getElementById('tab-' + panelId).classList.add('active');
     }
 
-   // Student Panel Verification Request Action
     document.getElementById('verifyBtn').addEventListener('click', async () => {
         const btn = document.getElementById('verifyBtn');
         const status = document.getElementById('statusMsg');
         const courseCodeInput = "CSC413"; 
         
+        // Check input field before initiating sensor logic
+        const matricInput = document.getElementById('matricNumberField').value.trim();
+        if (!matricInput) {
+            status.style.color = "red";
+            status.innerText = "Please enter your Matriculation Number before checking in.";
+            return;
+        }
+
         btn.disabled = true;
         status.style.color = "var(--primary)";
-        
         let liveNoiseLevel = 0;
 
         // 1. Request Microphone Permission & Sample Ambient Decibels
@@ -248,8 +245,6 @@
             javascriptNode.connect(audioContext.destination);
 
             let noiseSamples = [];
-            
-            // Collect volume data samples
             javascriptNode.onaudioprocess = () => {
                 const array = new Uint8Array(analyser.frequencyBinCount);
                 analyser.getByteFrequencyData(array);
@@ -261,10 +256,8 @@
                 noiseSamples.push(average);
             };
 
-            // Record audio snapshot for 1.5 seconds
             await new Promise(resolve => setTimeout(resolve, 1500));
 
-            // Stop recording hardware and calculate average volume amplitude
             stream.getTracks().forEach(track => track.stop());
             audioContext.close();
             
@@ -275,7 +268,6 @@
 
         } catch (audioErr) {
             console.warn("Microphone access denied or unavailable. Defaulting sensor profile.");
-            // Falls back to 0 if blocked, letting the backend handle it gracefully
             liveNoiseLevel = 0; 
         }
 
@@ -283,18 +275,8 @@
         status.innerText = "Synchronizing coordinate mesh with core system...";
 
         navigator.geolocation.getCurrentPosition(async (pos) => {
-            // Grab the real value typed into your input field
-            const matricInput = document.getElementById('matricNumberField').value.trim();
-
-            if (!matricInput) {
-                status.style.color = "red";
-                status.innerText = "Please enter your Matriculation Number before checking in.";
-                btn.disabled = false;
-                return;
-            }
-
             const payload = {
-                studentId: matricInput, // Passes the typed input string directly to the backend gate
+                studentId: matricInput, 
                 courseCode: courseCodeInput, 
                 latitude: pos.coords.latitude,
                 longitude: pos.coords.longitude,
@@ -354,7 +336,10 @@
             } catch(e) {
                 status.innerText = "Network Error: Failed to configure tracking boundaries.";
             }
-        });
+        }, (geoErr) => {
+            status.style.color = "red";
+            status.innerText = `Location Error: ${geoErr.message}. Enable GPS to deploy geofence.`;
+        }, { enableHighAccuracy: true, timeout: 10000 });
     }
 
     // Lecturer Panel: Fetch Student Log Row Entries
